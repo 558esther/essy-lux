@@ -267,7 +267,19 @@ export function ProductForm({
                 return next;
               })
             }
+            onReorder={(from, to) =>
+              setImages((prev) => {
+                const next = [...prev];
+                const [item] = next.splice(from, 1);
+                next.splice(to, 0, item);
+                return next;
+              })
+            }
           />
+          <p className="mt-2 text-xs text-muted-foreground">
+            The first photo is used everywhere the bag is shown — product cards, search and featured
+            sections. Use the arrows to reorder photos, or "Set main" to jump one to the front.
+          </p>
         </Section>
 
         <Section title="Collections">

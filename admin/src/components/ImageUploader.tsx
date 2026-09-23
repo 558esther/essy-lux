@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { ImagePlus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 export type UploaderImage = { url: string; id?: string };
@@ -11,6 +11,7 @@ export function ImageUploader({
   onAdd,
   onRemove,
   onSetMain,
+  onReorder,
   uploadFn,
   disabled,
   label = "Photos",
@@ -19,6 +20,8 @@ export function ImageUploader({
   onAdd: (urls: string[]) => void;
   onRemove: (image: UploaderImage, index: number) => void;
   onSetMain: (image: UploaderImage, index: number) => void;
+  /** Called with the index to move and its new index, when the admin reorders photos. */
+  onReorder?: (fromIndex: number, toIndex: number) => void;
   uploadFn: (file: File) => Promise<string>;
   disabled?: boolean;
   label?: string;
@@ -99,6 +102,30 @@ export function ImageUploader({
                 <span className="absolute left-1.5 top-1.5 rounded bg-primary px-1.5 py-0.5 text-[0.625rem] font-semibold text-primary-foreground">
                   Main
                 </span>
+              )}
+              {onReorder && images.length > 1 && (
+                <>
+                  {i > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onReorder(i, i - 1)}
+                      aria-label="Move image earlier"
+                      className="absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-1.5 text-white opacity-100 transition-opacity hover:bg-black/70 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                    >
+                      <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                  )}
+                  {i < images.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onReorder(i, i + 1)}
+                      aria-label="Move image later"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-1.5 text-white opacity-100 transition-opacity hover:bg-black/70 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                    >
+                      <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                  )}
+                </>
               )}
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/55 p-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
                 {i !== 0 && (
