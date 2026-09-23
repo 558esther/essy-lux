@@ -1,0 +1,29 @@
+name: Keep Supabase project awake
+
+# Supabase pauses free-tier projects after about a week with no API
+# activity. This just makes one cheap, harmless read every couple of days
+# so the project (and therefore the live site) never gets suspended.
+
+on:
+  schedule:
+    - cron: "0 3 */2 * *" # every 2 days at 03:00 UTC
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: https://mmivjqtbhsughroiehug.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_hbs-fIFLyKsiqRMOH7gUGg_6TwhLJWz
+        run: |
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/settings?select=id" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "Supabase responded with HTTP $http_code"
+          if [ "$http_code" -ge 400 ]; then
+            echo "::error::Supabase ping failed with HTTP $http_code"
+            exit 1
+          fi
