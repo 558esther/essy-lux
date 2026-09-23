@@ -31,6 +31,13 @@ import {
 import { listProducts, uploadProductImage } from "@/lib/queries/admin-products";
 import type { Collection } from "@/lib/types";
 
+function friendlySlugError(err: unknown, kind: string): string {
+  const pg = err as { code?: string } | null;
+  if (pg?.code === "23505") return `A ${kind} with this name already exists. Please choose a different name.`;
+  if (err instanceof Error) return err.message;
+  return `Could not save ${kind}.`;
+}
+
 export const Route = createFileRoute("/collections")({
   component: AdminCollections,
 });
@@ -105,7 +112,7 @@ function AdminCollections() {
       setDialogOpen(false);
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save collection.");
+      toast.error(friendlySlugError(err, "collection"));
     } finally {
       setSaving(false);
     }

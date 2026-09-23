@@ -27,7 +27,29 @@ import {
 import type { AdminProduct, Category, Collection, ProductStatus } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 
-type Errors = Partial<Record<"name" | "price" | "category_id" | "description" | "images", string>>;
+type Errors = Partial<
+  Record<"name" | "price" | "category_id" | "description" | "images" | "slug" | "sku", string>
+>;
+
+/** Turns a raw Supabase/Postgres error into a message a store owner can actually act on. */
+function describeSaveError(err: unknown): { message: string; field?: keyof Errors } {
+  const pgError = err as { code?: string; message?: string; details?: string } | null;
+  if (pgError?.code === "23505") {
+    const text = `${pgError.message ?? ""} ${pgError.details ?? ""}`.toLowerCase();
+    if (text.includes("slug")) {
+      return {
+        message: "A product with this name (or URL slug) already exists. Try a different name, or edit the slug below.",
+        field: "slug",
+      };
+    }
+    if (text.includes("sku")) {
+      return { message: "That SKU is already used by another product. Please choose a different one.", field: "sku" };
+    }
+    return { message: "A product with these details already exists." };
+  }
+  if (err instanceof Error) return { message: err.message };
+  return { message: "Could not save the product. Please check your connection and try again." };
+}
 
 export function ProductForm({
   product,
@@ -129,7 +151,9 @@ export function ProductForm({
         setSuccessState({ id, name: input.name });
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save the product.");
+      const { message, field } = describeSaveError(err);
+      if (field) setErrors((prev) => ({ ...prev, [field]: message }));
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -169,12 +193,13 @@ export function ProductForm({
               placeholder="Essy Rose Satchel"
             />
           </Field>
-          <Field label="URL slug">
+          <Field label="URL slug" error={errors.slug}>
             <Input
               value={effectiveSlug}
               onChange={(e) => {
                 setSlugTouched(true);
                 setSlug(slugify(e.target.value));
+                if (errors.slug) setErrors((prev) => ({ ...prev, slug: undefined }));
               }}
               placeholder="essy-rose-satchel"
             />
@@ -210,8 +235,15 @@ export function ProductForm({
                 onChange={(e) => setStock(e.target.value)}
               />
             </Field>
-            <Field label="SKU">
-              <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="ESSY-RS-001" />
+            <Field label="SKU" error={errors.sku}>
+              <Input
+                value={sku}
+                onChange={(e) => {
+                  setSku(e.target.value);
+                  if (errors.sku) setErrors((prev) => ({ ...prev, sku: undefined }));
+                }}
+                placeholder="ESSY-RS-001"
+              />
             </Field>
             <Field label="Low stock warning at">
               <Input

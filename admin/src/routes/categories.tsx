@@ -28,6 +28,13 @@ import {
 import { uploadImageFile } from "@/lib/queries/storage";
 import type { Category } from "@/lib/types";
 
+function friendlySlugError(err: unknown, kind: string): string {
+  const pg = err as { code?: string } | null;
+  if (pg?.code === "23505") return `A ${kind} with this name already exists. Please choose a different name.`;
+  if (err instanceof Error) return err.message;
+  return `Could not save ${kind}.`;
+}
+
 export const Route = createFileRoute("/categories")({
   component: AdminCategories,
 });
@@ -89,7 +96,7 @@ function AdminCategories() {
       setDialogOpen(false);
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save category.");
+      toast.error(friendlySlugError(err, "category"));
     } finally {
       setSaving(false);
     }
