@@ -48,19 +48,40 @@ export type OrderLine = {
   productId?: string;
 };
 
-const NUMBER_EMOJI = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-
 type MessageSettings = Partial<
   Pick<StoreSettings, "brand_name" | "tagline" | "currency" | "whatsapp_greeting" | "whatsapp_closing">
 >;
 
+const RULE = "━━━━━━━━━━━━━━━━━━━━";
+
+/**
+ * Emoji are multi-byte characters that many phones, WhatsApp versions and
+ * redirects turn into "�" boxes, which makes an order message look broken.
+ * Strip them so the message always reads cleanly, whatever the device.
+ */
+function plainText(text: string): string {
+  return text
+    .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}\u{20E3}]/gu, "")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/(\S) {2,}/g, "$1 ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /**
  * Renders the admin-configured single-item order template (Settings → WhatsApp)
- * by substituting {{variables}}. Falls back to a sensible default when the
- * template is empty.
+ * by substituting {{variables}}. A line whose placeholders all come out empty
+ * (e.g. "Note: {{note}}" with no note) is dropped instead of left dangling.
  */
 export function renderOrderTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => vars[key] ?? "");
+  return template
+    .split("\n")
+    .filter((line) => {
+      const keys = [...line.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
+      return keys.length === 0 || keys.some((k) => (vars[k] ?? "").trim() !== "");
+    })
+    .join("\n")
+    .replace(/\{\{(\w+)\}\}/g, (_match, key: string) => vars[key] ?? "");
 }
 
 /** Single product order message. */
@@ -73,53 +94,53 @@ export function buildSingleOrderMessage(
   const total = line.price * line.quantity;
   const brandName = settings?.brand_name ?? ESSY_LUX_CONFIG.brandName;
   const tagline = settings?.tagline ?? ESSY_LUX_CONFIG.tagline;
-  const greeting = settings?.whatsapp_greeting ?? "Hello Essy-Lux! 💕";
-  const closing = settings?.whatsapp_closing ?? "Thank you for choosing ESSY-LUX. 🌷";
+  const greeting = plainText(settings?.whatsapp_greeting ?? "Hello Essy-Lux,") || "Hello,";
+  const closing = plainText(settings?.whatsapp_closing ?? "Thank you for choosing ESSY-LUX.");
 
   if (settings?.orderMessageTemplate) {
-    return renderOrderTemplate(settings.orderMessageTemplate, {
-      productName: line.name,
-      color: line.color,
-      quantity: String(line.quantity),
-      price: formatPrice(line.price, currency),
-      total: formatPrice(total, currency),
-      customerName: customer.name,
-      customerPhone: customer.phone,
-      location: customer.location,
-      note: customer.note?.trim() ?? "",
-    });
+    return plainText(
+      renderOrderTemplate(settings.orderMessageTemplate, {
+        productName: line.name,
+        color: line.color,
+        quantity: String(line.quantity),
+        price: formatPrice(line.price, currency),
+        total: formatPrice(total, currency),
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        location: customer.location,
+        note: customer.note?.trim() ?? "",
+      }),
+    );
   }
 
-  return [
-    `🌸✨ *${brandName} ORDER REQUEST* ✨🌸`,
-    "",
-    greeting,
-    "",
-    "I would like to order the following handbag:",
-    "",
-    `👜 *Product:* ${line.name}`,
-    `🎨 *Color:* ${line.color}`,
-    `🔢 *Quantity:* ${line.quantity}`,
-    `💰 *Price:* ${formatPrice(line.price, currency)}${line.quantity > 1 ? " each" : ""}`,
-    "",
-    "━━━━━━━━━━━━━━",
-    `🧾 *ORDER TOTAL: ${formatPrice(total, currency)}*`,
-    "━━━━━━━━━━━━━━",
-    "",
-    "👤 *Customer Details*",
-    "",
-    `Name: ${customer.name}`,
-    `📞 Phone: ${customer.phone}`,
-    `📍 Location: ${customer.location}`,
-    ...(customer.note?.trim() ? ["", "📝 *Note:*", customer.note.trim()] : []),
-    "",
-    "Please confirm availability and let me know the next steps for payment and delivery. 💕✨",
-    "",
-    closing,
-    "",
-    `*${brandName}*`,
-    `*${tagline}*`,
-  ].join("\n");
+  return plainText(
+    [
+      `*${brandName} — ORDER REQUEST*`,
+      RULE,
+      "",
+      greeting,
+      "I would like to place an order:",
+      "",
+      `*Product:* ${line.name}`,
+      `*Color:* ${line.color}`,
+      `*Quantity:* ${line.quantity}`,
+      `*Price:* ${formatPrice(line.price, currency)}${line.quantity > 1 ? " each" : ""}`,
+      "",
+      `*TOTAL: ${formatPrice(total, currency)}*`,
+      RULE,
+      "",
+      "*Customer details*",
+      `Name: ${customer.name}`,
+      `Phone: ${customer.phone}`,
+      `Location: ${customer.location}`,
+      ...(customer.note?.trim() ? [`Note: ${customer.note.trim()}`] : []),
+      "",
+      "Please confirm availability, delivery and payment details.",
+      "",
+      closing,
+      `*${brandName}* | ${tagline}`,
+    ].join("\n"),
+  );
 }
 
 /** Multi-item cart order message. */
@@ -127,48 +148,44 @@ export function buildCartOrderMessage(lines: OrderLine[], customer: CustomerDeta
   const currency = settings?.currency ?? ESSY_LUX_CONFIG.currency;
   const brandName = settings?.brand_name ?? ESSY_LUX_CONFIG.brandName;
   const tagline = settings?.tagline ?? ESSY_LUX_CONFIG.tagline;
-  const greeting = settings?.whatsapp_greeting ?? "Hello Essy-Lux! 💕";
-  const closing = settings?.whatsapp_closing ?? "Thank you for choosing ESSY-LUX. 🌷";
+  const greeting = plainText(settings?.whatsapp_greeting ?? "Hello Essy-Lux,") || "Hello,";
+  const closing = plainText(settings?.whatsapp_closing ?? "Thank you for choosing ESSY-LUX.");
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.quantity, 0);
-  return [
-    `🌸✨ *${brandName} — NEW ORDER REQUEST* ✨🌸`,
-    "",
-    greeting,
-    "",
-    "I would like to place an order:",
-    "",
-    "🛍️ *ITEMS*",
-    "",
-    ...lines.flatMap((l, i) => [
-      `${NUMBER_EMOJI[i] ?? `${i + 1}.`} *${l.name}*`,
-      `🎨 Color: ${l.color}`,
-      `🔢 Quantity: ${l.quantity}`,
-      `💰 Price: ${formatPrice(l.price, currency)}${l.quantity > 1 ? " each" : ""}`,
+
+  return plainText(
+    [
+      `*${brandName} — ORDER REQUEST*`,
+      RULE,
       "",
-    ]),
-    "━━━━━━━━━━━━━━━━",
-    "🧾 *ORDER SUMMARY*",
-    "",
-    `Subtotal: ${formatPrice(subtotal, currency)}`,
-    "Delivery: To be confirmed",
-    `💰 *TOTAL: ${formatPrice(subtotal, currency)}*`,
-    "",
-    "━━━━━━━━━━━━━━━━",
-    "",
-    "👤 *CUSTOMER DETAILS*",
-    "",
-    `Name: ${customer.name}`,
-    `📞 Phone: ${customer.phone}`,
-    `📍 Location: ${customer.location}`,
-    ...(customer.note?.trim() ? ["", "📝 *NOTE*", customer.note.trim()] : []),
-    "",
-    "Please confirm availability, delivery details and payment instructions. 💕🌷",
-    "",
-    "Thank you for choosing:",
-    "",
-    `✨ *${brandName}*`,
-    `*${tagline}* ✨`,
-  ].join("\n");
+      greeting,
+      "I would like to place an order:",
+      "",
+      "*Items*",
+      ...lines.flatMap((l, i) => [
+        `${i + 1}. *${l.name}*`,
+        `    Color: ${l.color}`,
+        `    Quantity: ${l.quantity}`,
+        `    Price: ${formatPrice(l.price, currency)}${l.quantity > 1 ? " each" : ""}`,
+        "",
+      ]),
+      RULE,
+      `Subtotal: ${formatPrice(subtotal, currency)}`,
+      "Delivery: To be confirmed",
+      `*TOTAL: ${formatPrice(subtotal, currency)}*`,
+      RULE,
+      "",
+      "*Customer details*",
+      `Name: ${customer.name}`,
+      `Phone: ${customer.phone}`,
+      `Location: ${customer.location}`,
+      ...(customer.note?.trim() ? [`Note: ${customer.note.trim()}`] : []),
+      "",
+      "Please confirm availability, delivery details and payment instructions.",
+      "",
+      closing,
+      `*${brandName}* | ${tagline}`,
+    ].join("\n"),
+  );
 }
 
 /** General enquiry message used by the contact page. */
@@ -179,19 +196,22 @@ export function buildEnquiryMessage(fields: {
   subject: string;
   message: string;
 }) {
-  return [
-    "🌸 *ESSY-LUX ENQUIRY* 🌸",
-    "",
-    "Hello Essy-Lux! 💕",
-    "",
-    `👤 Name: ${fields.name}`,
-    ...(fields.email?.trim() ? [`📧 Email: ${fields.email.trim()}`] : []),
-    `📞 Phone: ${fields.phone}`,
-    `📝 Subject: ${fields.subject}`,
-    "",
-    "💬 *Message*",
-    fields.message,
-    "",
-    "Thank you! 🌷",
-  ].join("\n");
+  return plainText(
+    [
+      "*ESSY-LUX — ENQUIRY*",
+      RULE,
+      "",
+      "Hello Essy-Lux,",
+      "",
+      `Name: ${fields.name}`,
+      ...(fields.email?.trim() ? [`Email: ${fields.email.trim()}`] : []),
+      `Phone: ${fields.phone}`,
+      `Subject: ${fields.subject}`,
+      "",
+      "*Message*",
+      fields.message,
+      "",
+      "Thank you.",
+    ].join("\n"),
+  );
 }

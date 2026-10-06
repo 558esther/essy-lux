@@ -147,32 +147,32 @@ create table if not exists public.settings (
   whatsapp_number text not null default '254113835508',
   location text not null default 'Mombasa – Bamburi, Kenya',
   currency text not null default 'KES',
-  whatsapp_greeting text not null default 'Hello Essy-Lux! 💕',
-  whatsapp_closing text not null default 'Thank you for choosing ESSY-LUX. 🌷',
-  order_message_template text not null default '🌸✨ *ESSY-LUX ORDER REQUEST* ✨🌸
+  whatsapp_greeting text not null default 'Hello Essy-Lux,',
+  whatsapp_closing text not null default 'Thank you for choosing ESSY-LUX.',
+  order_message_template text not null default E'*ESSY-LUX — ORDER REQUEST*
+━━━━━━━━━━━━━━━━━━━━
 
-Hello Essy-Lux! 💕
+Hello Essy-Lux,
+I would like to place an order:
 
-I would like to order:
+*Product:* {{productName}}
+*Color:* {{color}}
+*Quantity:* {{quantity}}
+*Price:* {{price}}
 
-👜 *Product:* {{productName}}
-🎨 *Color:* {{color}}
-🔢 *Quantity:* {{quantity}}
-💰 *Price:* {{price}}
+*TOTAL: {{total}}*
+━━━━━━━━━━━━━━━━━━━━
 
-🧾 *TOTAL:* {{total}}
-
-👤 *Customer:* {{customerName}}
-📞 *Phone:* {{customerPhone}}
-📍 *Location:* {{location}}
-
-📝 *Note:* {{note}}
+*Customer details*
+Name: {{customerName}}
+Phone: {{customerPhone}}
+Location: {{location}}
+Note: {{note}}
 
 Please confirm availability, delivery and payment details.
 
-Thank you! 🌷
-
-*ESSY-LUX — LUXURY BAGS*',
+Thank you for choosing ESSY-LUX.
+*ESSY-LUX* | LUXURY BAGS',
   low_stock_threshold int not null default 3,
   updated_at timestamptz not null default now()
 );

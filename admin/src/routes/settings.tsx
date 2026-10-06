@@ -146,7 +146,9 @@ function WhatsAppForm({ settings }: { settings: StoreSettings }) {
         />
         <p className="mt-1.5 text-[0.7rem] text-muted-foreground">
           Supported variables: {"{{productName}} {{color}} {{quantity}} {{price}} {{total}} {{customerName}} {{customerPhone}} {{location}} {{note}}"}
-          . Multi-item cart orders use a similar layout with each item listed automatically.
+          . Multi-item cart orders use a similar layout with each item listed automatically. Lines like
+          &ldquo;Note: {"{{note}}"}&rdquo; are left out when the customer didn&apos;t fill them in. Emojis are
+          removed automatically, because some phones show them as &ldquo;?&rdquo; boxes.
         </p>
       </Field>
       <Button
